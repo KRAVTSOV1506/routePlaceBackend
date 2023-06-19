@@ -77,18 +77,46 @@ def get_tokens():
     )
 
 
-#@post("/getListedTokens")
-#def get_listed_tokens():
-#    return json.dumps(
-#        connection.select(
-#            '''
-#                SELECT *
-#                FROM orders
-#                WHERE owner = %s;
-#            ''',
-#            (request.json["collectionUuid"],)
-#        )
-#    )
+def get_token_prices(order_uuid):
+    return connection.select(
+        '''
+            SELECT *
+            FROM order_prices
+            WHERE order_uuid = %s;
+        ''',
+        (order_uuid,)
+    )
+
+
+@post("/getListedTokens")
+def get_listed_tokens():
+    tokens = connection.select(
+        '''
+            SELECT 
+                o.chain_id, 
+                o.collection_address, 
+                o.token_id, 
+                o.owner, 
+                o.uuid, 
+                o.nonce,
+                t.name,
+                o.uuid AS order_uuid
+            FROM orders o
+            LEFT JOIN contracts c
+                ON o.chain_id = c.chain_id AND o.collection_address = c.address
+            LEFT JOIN tokens t
+                ON o.chain_id = t.chain_id AND 
+                   o.collection_address = t.collection_address AND 
+                   o.token_id = t.token_id
+            WHERE c.collection = %s;
+        ''',
+        (request.json["collectionUuid"],)
+    )
+
+    for token in tokens:
+        token["prices"] = get_token_prices(token["order_uuid"])
+
+    return json.dumps(tokens)
 
 
 if __name__ == "__main__":
