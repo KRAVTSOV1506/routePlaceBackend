@@ -91,7 +91,7 @@ def get_token_prices(order_uuid):
 @post("/getListedTokens")
 def get_listed_tokens():
     tokens = connection.select(
-        '''
+        '''    
             SELECT 
                 o.chain_id, 
                 o.collection_address, 
@@ -102,6 +102,18 @@ def get_listed_tokens():
                 t.name,
                 o.uuid AS order_uuid
             FROM orders o
+            INNER JOIN (
+                SELECT o.chain_id, 
+                    o.collection_address, 
+                    o.token_id,
+                    MAX(o.nonce) AS max_nonce
+                FROM orders o
+                GROUP BY o.chain_id, o.collection_address, o.token_id
+            ) tmp
+                ON o.chain_id = tmp.chain_id AND 
+                   o.collection_address = tmp.collection_address AND 
+                   o.token_id = tmp.token_id AND
+                   o.nonce = tmp.max_nonce
             LEFT JOIN contracts c
                 ON o.chain_id = c.chain_id AND o.collection_address = c.address
             LEFT JOIN tokens t
