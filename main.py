@@ -114,9 +114,55 @@ def get_listed_tokens():
     )
 
     for token in tokens:
-        token["prices"] = get_token_prices(token["order_uuid"])
+        if token["order_uuid"]:
+            token["prices"] = get_token_prices(token["order_uuid"])
 
     return json.dumps(tokens)
+
+
+@post("/getTokenData")
+def get_token_data():
+    token = connection.select(
+        '''
+            SELECT 
+                t.chain_id,
+                t.collection_address,
+                t.token_id,
+                t.token_uri,
+                t.name,
+                t.image,
+                t.owner,
+                t.desc,
+                o.uuid AS order_uuid
+            FROM tokens t
+            LEFT JOIN orders o
+                ON o.chain_id = t.chain_id AND
+                   o.collection_address = t.collection_address AND 
+                   o.token_id = t.token_id
+            WHERE t.chain_id = %s AND t.collection_address = %s AND t.token_id = %s
+            ORDER BY o.nonce DESC
+            LIMIT 1;
+        ''',
+        (request.json["chainId"], request.json["collectionAddress"], request.json["tokenId"])
+    )[0]
+
+    if token["order_uuid"]:
+        token["prices"] = get_token_prices(token["order_uuid"])
+
+    token["properties"] = [
+        {
+            "trait_type": "Hair",
+            "value": "Red",
+        },
+        {
+            "trait_type": "Body",
+            "value": "Blond",
+        }
+    ]
+
+    token["history"] = []
+
+    return token
 
 
 if __name__ == "__main__":
