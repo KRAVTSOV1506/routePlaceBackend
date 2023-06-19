@@ -1,0 +1,10 @@
+boto3==1.26.150
+botocore==1.29.150
+bottle==0.12.25
+bottle-cors-plugin==0.1.9
+ed25519==1.5
+jmespath==1.0.1
+python-dateutil==2.8.2
+s3transfer==0.6.1
+six==1.16.0
+urllib3==1.26.16
