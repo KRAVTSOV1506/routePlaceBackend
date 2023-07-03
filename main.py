@@ -103,7 +103,7 @@ def get_listed_tokens():
                 ON o.chain_id = c.chain_id AND o.collection_address = c.address
             WHERE c.collection = %s AND o.token_id = %s;
         ''',
-        (request.json["collectionUuid"], request.json["tokenId"])
+        (request.json["collection_uuid"], request.json["token_id"])
     )
 
     for token in tokens:
