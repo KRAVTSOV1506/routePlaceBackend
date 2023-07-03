@@ -63,20 +63,6 @@ def get_collections():
     return json.dumps(collections)
 
 
-@post("/getTokens")
-def get_tokens():
-    return json.dumps(
-        connection.select(
-            '''
-                SELECT *
-                FROM tokens
-                WHERE owner = %s;
-            ''',
-            (request.json["address"],)
-        )
-    )
-
-
 def get_token_prices(order_uuid):
     return connection.select(
         '''
@@ -99,7 +85,6 @@ def get_listed_tokens():
                 o.owner, 
                 o.uuid, 
                 o.nonce,
-                t.name,
                 o.uuid AS order_uuid
             FROM orders o
             INNER JOIN (
@@ -116,10 +101,6 @@ def get_listed_tokens():
                    o.nonce = tmp.max_nonce
             LEFT JOIN contracts c
                 ON o.chain_id = c.chain_id AND o.collection_address = c.address
-            LEFT JOIN tokens t
-                ON o.chain_id = t.chain_id AND 
-                   o.collection_address = t.collection_address AND 
-                   o.token_id = t.token_id
             WHERE c.collection = %s;
         ''',
         (request.json["collectionUuid"],)
@@ -132,96 +113,48 @@ def get_listed_tokens():
     return json.dumps(tokens)
 
 
-@post("/getTokenDataByTokenId")
-def get_token_data():
-    token = connection.select(
+def get_next_nonce(chain_id, collection_address, token_id):
+    return connection.select(
         '''
-            SELECT 
-                t.chain_id,
-                t.collection_address,
-                t.token_id,
-                t.token_uri,
-                t.name,
-                t.image,
-                t.owner,
-                t.desc,
-                o.uuid AS order_uuid
-            FROM tokens t
-            LEFT JOIN orders o
-                ON o.chain_id = t.chain_id AND
-                   o.collection_address = t.collection_address AND 
-                   o.token_id = t.token_id
-            LEFT JOIN contracts c
-                ON t.collection_address = c.address
-            WHERE c.collection = %s AND t.token_id = %s
-            ORDER BY o.nonce DESC
-            LIMIT 1;
+            SELECT MAX(o.nonce) AS max_nonce
+            FROM orders
+            WHERE chain_id = %s AND collection_address = %s AND token_id = %s
+            GROUP BY chain_id, collection_address, token_id;
         ''',
-        (request.json["collectionUuid"], request.json["tokenId"])
-    )[0]
-
-    if token["order_uuid"]:
-        token["prices"] = get_token_prices(token["order_uuid"])
-
-    token["properties"] = [
-        {
-            "trait_type": "Hair",
-            "value": "Red",
-        },
-        {
-            "trait_type": "Body",
-            "value": "Blond",
-        }
-    ]
-
-    token["history"] = []
-
-    return token
+        (chain_id, collection_address, token_id)
+    )[0].max_nonce + 1
 
 
-@post("/getTokenData")
-def get_token_data():
-    token = connection.select(
+@post("/listing")
+def listing():
+    chain_id = request.json["chain_id"]
+    collection_address = request.json["collection_address"]
+    token_id = request.json["token_id"]
+    signature = request.json["signature"]
+    prices = json.loads(request.json["prices"])
+
+    next_nonce = get_next_nonce(chain_id, collection_address, token_id)
+
+    order_uuid = connection.insert(
         '''
-            SELECT 
-                t.chain_id,
-                t.collection_address,
-                t.token_id,
-                t.token_uri,
-                t.name,
-                t.image,
-                t.owner,
-                t.desc,
-                o.uuid AS order_uuid
-            FROM tokens t
-            LEFT JOIN orders o
-                ON o.chain_id = t.chain_id AND
-                   o.collection_address = t.collection_address AND 
-                   o.token_id = t.token_id
-            WHERE t.chain_id = %s AND t.collection_address = %s AND t.token_id = %s
-            ORDER BY o.nonce DESC
-            LIMIT 1;
+            INSERT INTO orders
+            (chain_id, collection_address, token_id, nonce, signature)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING uuid;
         ''',
-        (request.json["chainId"], request.json["collectionAddress"], request.json["tokenId"])
-    )[0]
+        (chain_id, collection_address, token_id, next_nonce, signature)
+    )[0].uuid
 
-    if token["order_uuid"]:
-        token["prices"] = get_token_prices(token["order_uuid"])
-
-    token["properties"] = [
-        {
-            "trait_type": "Hair",
-            "value": "Red",
-        },
-        {
-            "trait_type": "Body",
-            "value": "Blond",
-        }
-    ]
-
-    token["history"] = []
-
-    return token
+    for price in prices:
+        _ = connection.insert(
+            '''
+                INSERT INTO order_prices
+                (order_uuid, chain_id, price)
+                VALUES (%s, %s, %s)
+                RETURNING *;
+            ''',
+            (order_uuid, price["chain_id"], price["price"])
+        )
 
 
 if __name__ == "__main__":
