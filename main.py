@@ -114,15 +114,18 @@ def get_listed_tokens():
 
 
 def get_next_nonce(chain_id, collection_address, token_id):
-    return connection.select(
-        '''
-            SELECT MAX(o.nonce) AS max_nonce
-            FROM orders
-            WHERE chain_id = %s AND collection_address = %s AND token_id = %s
-            GROUP BY chain_id, collection_address, token_id;
-        ''',
-        (chain_id, collection_address, token_id)
-    )[0].max_nonce + 1
+    try:
+        return connection.select(
+            '''
+                SELECT MAX(o.nonce) AS max_nonce
+                FROM orders o
+                WHERE chain_id = %s AND collection_address = %s AND token_id = %s
+                GROUP BY chain_id, collection_address, token_id;
+            ''',
+            (chain_id, collection_address, token_id)
+        )[0]["max_nonce"] + 1
+    except Exception as e:
+        return 0
 
 
 @post("/listing")
@@ -131,19 +134,20 @@ def listing():
     collection_address = request.json["collection_address"]
     token_id = request.json["token_id"]
     signature = request.json["signature"]
-    prices = json.loads(request.json["prices"])
+    owner = request.json["owner"]
+    prices = request.json["prices"]
 
     next_nonce = get_next_nonce(chain_id, collection_address, token_id)
 
     order_uuid = connection.insert(
         '''
             INSERT INTO orders
-            (chain_id, collection_address, token_id, nonce, signature)
-            VALUES (%s, %s, %s, %s, %s)
+            (chain_id, collection_address, token_id, nonce, signature, owner)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING uuid;
         ''',
-        (chain_id, collection_address, token_id, next_nonce, signature)
-    )[0].uuid
+        (chain_id, collection_address, token_id, next_nonce, signature, owner)
+    )[0]["uuid"]
 
     for price in prices:
         _ = connection.insert(
@@ -155,6 +159,8 @@ def listing():
             ''',
             (order_uuid, price["chain_id"], price["price"])
         )
+
+    return json.dumps({"order_uuid": order_uuid})
 
 
 if __name__ == "__main__":
