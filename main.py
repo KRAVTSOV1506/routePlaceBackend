@@ -3,6 +3,11 @@ import bottle
 from bottle_cors_plugin import cors_plugin
 from db import connection
 import json
+from eth_abi import encode
+import sha3
+from web3 import Web3
+from hexbytes import HexBytes
+from eth_account.messages import encode_defunct
 
 
 class EnableCors(object):
@@ -171,6 +176,15 @@ def get_next_nonce():
         return str(0)
 
 
+def is_verified(order, signature):
+    k = sha3.keccak_256()
+    k.update(encode(["string", "address", "address", "uint256", "uint256", "string[]", "uint256[]"], order))
+    w3 = Web3(Web3.HTTPProvider(""))
+    message = encode_defunct(hexstr=k.hexdigest())
+    address = w3.eth.account.recover_message(message, signature=HexBytes(signature))
+    return address.lower() == order[2]
+
+
 @post("/listing")
 def listing():
     chain_id = request.json["chain_id"]
@@ -180,6 +194,20 @@ def listing():
     owner = request.json["owner"]
     prices = request.json["prices"]
     next_nonce = request.json["nonce"]
+
+    if not is_verified(
+        [
+            chain_id,
+            collection_address,
+            owner,
+            int(token_id),
+            int(next_nonce),
+            list(map(prices, lambda x: x["chain_id"])),
+            list(map(prices, lambda x: int(x["price"], 16)))
+        ],
+        signature
+    ):
+        return "Signature is invalid"
 
     order_uuid = connection.insert(
         '''
