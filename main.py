@@ -202,8 +202,8 @@ def listing():
             owner,
             int(token_id),
             int(next_nonce),
-            list(map(prices, lambda x: x["chain_id"])),
-            list(map(prices, lambda x: int(x["price"], 16)))
+            list(map(lambda x: x["chain_id"], prices)),
+            list(map(lambda x: int(x["price"], 16), prices))
         ],
         signature
     ):
