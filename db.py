@@ -3,13 +3,16 @@ Setting and create singleton DB conection and some wrappers for SQL.
 """
 from abc import ABC, abstractmethod
 import psycopg2.extras
+import dotenv
+
+config = dotenv.get_variables(".env")
 
 # TODO: move to env
 config = {
     "dbname": 'route',
     "user": 'postgres',
-    "password": '24515',
-    "host": '3.106.130.141',
+    "password": config["password"],
+    "host": config["host"],
 }
 
 
