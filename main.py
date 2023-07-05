@@ -152,7 +152,7 @@ def get_listed_tokens():
     return json.dumps(tokens)
 
 
-@post("/getNestNonce")
+@post("/getNextNonce")
 def get_next_nonce():
     chain_id = request.json["chain_id"]
     collection_address = request.json["collection_address"]
