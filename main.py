@@ -235,6 +235,6 @@ def listing():
 
 if __name__ == "__main__":
     application = bottle.default_app()
-    #application.install(cors_plugin("*"))
+    application.install(cors_plugin("*"))
     application.install(EnableCors())
     run(application, host="0.0.0.0", port=8004)
