@@ -152,7 +152,11 @@ def get_listed_tokens():
     return json.dumps(tokens)
 
 
-def get_next_nonce(chain_id, collection_address, token_id):
+@post("/getNestNonce")
+def get_next_nonce():
+    chain_id = request.json["chain_id"]
+    collection_address = request.json["collection_address"]
+    token_id = request.json["token_id"]
     try:
         return connection.select(
             '''
@@ -175,8 +179,7 @@ def listing():
     signature = request.json["signature"]
     owner = request.json["owner"]
     prices = request.json["prices"]
-
-    next_nonce = get_next_nonce(chain_id, collection_address, token_id)
+    next_nonce = request.json["nonce"]
 
     order_uuid = connection.insert(
         '''
