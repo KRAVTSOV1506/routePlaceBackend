@@ -158,7 +158,7 @@ def get_next_nonce():
     collection_address = request.json["collection_address"]
     token_id = request.json["token_id"]
     try:
-        return connection.select(
+        return str(connection.select(
             '''
                 SELECT MAX(o.nonce) AS max_nonce
                 FROM orders o
@@ -166,9 +166,9 @@ def get_next_nonce():
                 GROUP BY chain_id, collection_address, token_id;
             ''',
             (chain_id, collection_address, token_id)
-        )[0]["max_nonce"] + 1
+        )[0]["max_nonce"] + 1)
     except Exception as e:
-        return 0
+        return str(0)
 
 
 @post("/listing")
